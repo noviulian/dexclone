@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PriceChartWidget } from '../components/token/TokenChart';
-import templateData from '../templatedata.json';
+import { getTrendingTokens } from '../services/api';
 
 const WidgetTestPage = () => {
   const [tokens, setTokens] = useState([]);
@@ -8,66 +8,60 @@ const WidgetTestPage = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const loadTemplateData = () => {
+    const loadTrendingTokens = async () => {
       try {
         setLoading(true);
-        console.log('Loading template data:', templateData);
+        console.log('Loading trending tokens...');
 
-        // Map chain names to chain IDs
-        const chainMapping = {
-          'ether': '0x1',
-          'bsc': '0x38',
-          'polygon': '0x89',
-          'avalanche': '0xa86a',
-          'fantom': '0xfa',
-          'arbitrum': '0xa4b1',
-          'optimism': '0xa',
-          'base': '0x2105',
-          'solana': 'solana'
-        };
+        // Fetch trending tokens from API
+        const trendingData = await getTrendingTokens('', 20);
+        console.log('Trending tokens data:', trendingData);
 
-        // Transform the pool data from templatedata.json
-        const formattedTokens = templateData.data.pools.map((pool, index) => ({
+        // Transform the trending tokens data
+        const formattedTokens = trendingData.map((token, index) => ({
           id: `widget-${index}`,
-          pairAddress: pool.address, // Use pool.address as the pair address
-          chainId: chainMapping[pool.chain] || '0x1', // Map chain from template data
-          pairLabel: `${pool.mainToken?.symbol || 'TOKEN'}/${pool.sideToken?.symbol || 'ETH'}`,
-          exchangeName: pool.exchange?.name || 'DEX',
-          exchangeLogo: pool.exchange?.logo || '/images/exchanges/uniswap.svg',
-          volume24hrUsd: pool.metrics?.volume || 0,
-          liquidityUsd: pool.metrics?.liquidity || pool.metrics?.fdv || 0,
+          pairAddress: token.tokenAddress, // Use tokenAddress as pair address
+          chainId: token.chainId,
+          pairLabel: `${token.symbol}/USD`,
+          exchangeName: 'DEX',
+          exchangeLogo: '/images/exchanges/uniswap.svg',
+          volume24hrUsd: token.totalVolume?.['24h'] || 0,
+          liquidityUsd: token.liquidityUsd || 0,
           pair: [
             {
               pairTokenType: 'token0',
-              symbol: pool.mainToken?.symbol || 'TOKEN',
-              name: pool.mainToken?.name,
-              address: pool.mainToken?.address
+              symbol: token.symbol,
+              name: token.name,
+              address: token.tokenAddress
             },
             {
               pairTokenType: 'token1',
-              symbol: pool.sideToken?.symbol || 'ETH',
-              name: pool.sideToken?.name,
-              address: pool.sideToken?.address
+              symbol: 'USD',
+              name: 'US Dollar',
+              address: null
             }
           ],
-          tokenName: pool.mainToken?.name,
-          tokenSymbol: pool.mainToken?.symbol,
-          priceChange24h: pool.metrics?.priceChange24h,
-          price: pool.metrics?.price,
-          priceUsd: pool.priceUsd,
-          creationTime: pool.creationTime,
-          exchange: pool.exchange,
-          txns: pool.metrics?.txns,
-          holders: pool.metrics?.holders,
-          marketCap: pool.metrics?.fdv
+          tokenName: token.name,
+          tokenSymbol: token.symbol,
+          priceChange24h: token.pricePercentChange?.['24h'],
+          price: token.usdPrice,
+          priceUsd: token.usdPrice,
+          creationTime: token.createdAt ? token.createdAt * 1000 : null, // Convert to milliseconds
+          exchange: {
+            name: 'DEX',
+            logo: '/images/exchanges/uniswap.svg'
+          },
+          txns: token.transactions?.['24h'],
+          holders: token.holders,
+          marketCap: token.marketCap
         }));
 
         setTokens(formattedTokens);
         setError(null);
-        console.log(`Loaded ${formattedTokens.length} pools from template data`);
+        console.log(`Loaded ${formattedTokens.length} trending tokens`);
       } catch (err) {
-        console.error('Error loading template data:', err);
-        setError('Failed to load template data');
+        console.error('Error loading trending tokens:', err);
+        setError('Failed to load trending tokens');
         // Use fallback data if loading fails
         setTokens(getFallbackTokens());
       } finally {
@@ -75,7 +69,7 @@ const WidgetTestPage = () => {
       }
     };
 
-    loadTemplateData();
+    loadTrendingTokens();
   }, []);
 
   // Fallback tokens in case API fails
@@ -139,10 +133,10 @@ const WidgetTestPage = () => {
       <div className="p-6 bg-dex-bg-primary min-h-screen">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-2xl font-bold text-dex-text-primary mb-6">
-            Loading Live New Pools...
+            Loading Trending Tokens...
           </h1>
           <div className="text-dex-text-secondary">
-            Loading pool data from template...
+            Fetching trending token data from API...
           </div>
         </div>
       </div>
@@ -154,7 +148,7 @@ const WidgetTestPage = () => {
       <div className="max-w-7xl mx-auto">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-dex-text-primary mb-2">
-            Template Pool Charts - {tokens.length} Pools
+            Trending Token Charts - {tokens.length} Tokens
           </h1>
           {error && (
             <div className="text-yellow-500 mb-2">
@@ -162,7 +156,7 @@ const WidgetTestPage = () => {
             </div>
           )}
           <p className="text-dex-text-secondary">
-            Displaying {tokens.length} pool charts from template data (multi-chain)
+            Displaying {tokens.length} trending token charts (multi-chain)
           </p>
         </div>
 
@@ -200,11 +194,10 @@ const WidgetTestPage = () => {
                     )}
                     {token.priceChange24h !== undefined && (
                       <div
-                        className={`text-sm font-medium ${
-                          token.priceChange24h >= 0
+                        className={`text-sm font-medium ${token.priceChange24h >= 0
                             ? 'text-green-500'
                             : 'text-red-500'
-                        }`}
+                          }`}
                       >
                         {token.priceChange24h >= 0 ? '+' : ''}
                         {token.priceChange24h.toFixed(2)}%
@@ -250,9 +243,11 @@ const WidgetTestPage = () => {
                 </div>
 
                 {/* Pool Address */}
-                <div className="text-xs text-dex-text-tertiary mt-1 font-mono">
-                  Pool: {token.pairAddress.slice(0, 6)}...{token.pairAddress.slice(-4)}
-                </div>
+                {token.pairAddress && (
+                  <div className="text-xs text-dex-text-tertiary mt-1 font-mono">
+                    Pool: {token.pairAddress.slice(0, 6)}...{token.pairAddress.slice(-4)}
+                  </div>
+                )}
               </div>
 
               {/* Chart Container - Takes remaining space */}
@@ -269,7 +264,7 @@ const WidgetTestPage = () => {
 
         {tokens.length === 0 && !loading && (
           <div className="text-center text-dex-text-secondary mt-8">
-            No live pools found
+            No trending tokens found
           </div>
         )}
       </div>

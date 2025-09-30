@@ -1,11 +1,14 @@
 // components/token/TokenChart.js
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 
 export const PriceChartWidget = ({ pair, timeFrame, widgetId }) => {
   const containerRef = useRef(null);
 
-  // Use provided widgetId or generate a unique one
-  const chartContainerId = widgetId || `price-chart-widget-${Math.random().toString(36).substr(2, 9)}`;
+  // Use provided widgetId or generate a unique one (memoized to prevent re-generation)
+  const chartContainerId = useMemo(
+    () => widgetId || `price-chart-widget-${Math.random().toString(36).substr(2, 9)}`,
+    [widgetId]
+  );
 
   // Map our timeframe to chart widget timeframe format
   const timeframeMap = {
@@ -41,7 +44,7 @@ export const PriceChartWidget = ({ pair, timeFrame, widgetId }) => {
         window.createMyWidget(chartContainerId, {
           autoSize: true,
           chainId: chartChainId,
-          pairAddress: pair.pairAddress,
+          tokenAddress: pair.pairAddress,
           showHoldersChart: true,
           defaultInterval: timeframeMap[timeFrame] || '1D',
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'Etc/UTC',
